@@ -1,4 +1,4 @@
-##Required Packages
+##Required/Useful Packages
 library(ggplot2)
 library(dplyr)
 library(purrr)
