@@ -1,4 +1,4 @@
-#Paquetes que utiliza el proyecto
+##Required Packages
 library(ggplot2)
 library(dplyr)
 library(purrr)
@@ -7,9 +7,10 @@ library(rjags)
 library(corrplot)
 library(tibble)
 library(matlib)
-##Leer datos
+#data load
 datosMerk <- read.csv("femcare.csv")
 str(datosMerk)
+#fecha means date in Spanish
 colnames(datosMerk)[1] <- "fecha"
 datosMerk <- datosMerk %>% mutate(fecha = as.Date(fecha, "%d/%m/%Y")) %>% arrange(fecha) %>% 
   mutate(logit_B = logit(share_B))
@@ -55,7 +56,7 @@ datMat_Test <- list()
 #Numero de coeficientes
 p <- 15
 
-##Estandarisar predictivas (escalas muy diferentes)
+##Standarize covariates (different scales)
 for(j in 1: 6){
   datMat[[j]] <- matrix(rep(1, p*length(Ajuste[[j+1]]$share_A)), ncol = p, nrow = length(Ajuste[[j+1]]$share_A))
   for(i in 2:15){
@@ -78,12 +79,12 @@ for(j in 1: 6){
 ##
 ##Model Fitting
 
-#Coeficientes en el modelos
+#Whic covariates are included in the model
 coefs <- c(1, 4, 5, 12)
 p2 <- length(coefs)
-##Pais a ajustar (CR=1, EL =2, GT=3, HD=4, NIC=5, PTY=6)
+##Country to adjust (CR=1, EL =2, GT=3, HD=4, NIC=5, PTY=6)
 pais <- 1
-##Seleccion de prior entre (conjugada normales, conjugada doble exponcencial, flat )
+##Prior Selection (normal conjugates, double exponential conjugate, flat ), RJAGS
 model_string <- textConnection("model{
                       #Verosimilitud
                       for(i in 1:n){
@@ -98,13 +99,13 @@ model_string <- textConnection("model{
                       taub ~ dgamma( 1, 0.1)
                       sigma <- 1/sqrt(taue)
                                }")
-##Datos para la simulacion
+##Data for RJAGS simulation
 data_Jags <- list(Y = logit(Ajuste[[pais+1]]$share_A), X = datMat[[pais]][, coefs],
                   n = length(Ajuste[[pais+1]]$share_A), p = p2)
-##Valores iniciales
+##Initial Values
 inits <- list(beta = rnorm(p2), taue = rgamma(1,1) ,taub = rgamma(1,1) 
               )
-##Modelo ajustado
+##Fiited model
 modelo_1 <- jags.model(model_string, data = data_Jags, inits = inits, n.chains = 2)
 update(modelo_1, 10000, progres.bar="none")
 samples <- coda.samples(modelo_1, variable.names = c("beta", "sigma"),
@@ -113,13 +114,13 @@ summary(samples)[[1]][1:p2,1]
 min(abs(summary(samples)[[1]][1:p2,1]))
 #plot(samples)
 #View(samples)
-##Criterio de la devianza DIC
+##DIC deviance criteia
 DIC <- dic.samples(modelo_1, n.iter = 2500, progress.bar="none")
 DIC
 
-#Predecir Puntual
-#Errores cudraticos
-#Simular predictiva posterior
+#Point Estimate
+#Square errors
+#Posterior predictive simulation
 logit_Yp <- matrix(rep(0,length(Test[[pais+1]]$share_A)*10000), nrow=10000, ncol =6)
 Yp <- logit_Yp
 for(s in 1:10000){
@@ -138,7 +139,7 @@ for(j in 1:6){
 print(paste("MSE: ", mean(er^2)))
 
 
-##Prior de Jeffreys
+##Jeffreys Prior
 beta_LS <- solve(t(datMat[[pais]][, coefs]) %*% datMat[[pais]][, coefs]) %*% 
   t(datMat[[pais]][, coefs])%*% logit(Ajuste[[pais+1]]$share_A)
 sigma2 <- mean((logit(Ajuste[[pais+1]]$share_A) - datMat[[pais]][, coefs] %*% beta_LS)^2)
@@ -152,7 +153,7 @@ for(i in 1:p2){
 }
 
 
-##Modelo con prior g de Zellner (correlacion y estructura y LS)
+##Zellner prior model (Correlated covariates)
 modeloZellner <- gibbsZellner(10000, betaLS = beta_LS, XtX = t(datMat[[pais]][, coefs]) %*% datMat[[pais]][, coefs], 
              c=1, a=1, b=1, p=p2, n=length(Ajuste[[pais+1]]$share_A))
 modeloZellner <- cbind(modeloZellner, 1/sqrt(modeloZellner[, p2+1]))
@@ -176,13 +177,13 @@ for(j in 1:6){
 print(paste("MSE: ", mean(erZ^2), "Zellner"))
 
 if(mean(erZ^2)/mean(er^2) > 1){
-  print("Tiene un mejor desempeno el modelo conjugado sin correlacion a-priori")
+  print("a-priori without covariate correlation has a better performance")
 } else {
-  print("tiene mejor desempeno el modelo de Zellner")
+  print("Zellner's model has a better performance")
 }
 summary(lm(logit(share_A) ~ ventas_unidades_A + ppu_A + ventas_unidades_B, data = Ajuste[[pais+1]]))
 colnames(Ajuste[[pais+1]])[3]
-##Modelos finales
+##Final fitted models
 ## CR: logit(share_A) ~ b0 + b1*A3 + b2*A4 + b3*B4, prior normal flat; bj ~ N(0, sigma2*100^2) 
 ## EL: logit(sahre_A) ~ b0 + b1*A3 + b2*A4 +b3*B4 + b4*B7
 ## GT:logit(share_A) ~ b0 + b1*A3 + b2*B7; prior doble expoencial
@@ -192,11 +193,12 @@ colnames(Ajuste[[pais+1]])[3]
 
 
 
-##Funciones auxiliares
+##Auxilary functions
 logit <- function(x){
   return(log(x/(1-x)))
 }
 
+#Multivariate normal sample simulation
 rmvnorm <- function(n, mu, Sigma){
   Y <- matrix( rep(0, n * length(mu)), ncol = length(mu), nrow = n)
   colN <- rep("s", length(mu))
@@ -212,6 +214,8 @@ rmvnorm <- function(n, mu, Sigma){
   return(Y)
 }
 rmvnorm(10, c(1, 1, -1), matrix(c(2,1, -1,1,2, -.5, -1, -.5, 1), nrow=3, ncol=3))
+
+#Gibbs sampler to simulate Zellner's model posterior distribution
 gibbsZellner <- function(S, betaLS, XtX, c, a, b, p, n){
   XtXin <- solve(XtX)
   chain <- array(dim = c(2*S+1, p+1))
