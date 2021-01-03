@@ -1,2 +1,2 @@
 # Bayesian-Linear-Regression
-Linear regression to study market participation for data in the femcare.csv file; the project employs the RJAGS library and a Gibss-Samplet to simulate the zellner posterior distribution. 
+Linear regression to study market participation for data in the femcare.csv file; the project employs the RJAGS library and a Gibss-Sampler to simulate the Zellner's model posterior distribution. Some of the code is written with words in Spanish, the proper transalation is: pais:= country, ajuste:= fit. The program produces a list to store the analysis of each country's results.
